@@ -1,0 +1,445 @@
+import random
+import time
+import os
+
+class Card(object):
+    def __init__(self, suit, val):
+        self.suit = suit
+        self.value = val
+
+    def show(self):
+        if self.value < 11:
+            print("{} of {}".format(self.value, self.suit))
+        if self.value == 11:
+            print("Jack of {}".format(self.suit))
+        if self.value == 12:
+            print("Queen of {}".format(self.suit))
+        if self.value == 13:
+            print("King of {}".format(self.suit))
+        if self.value == 14:
+            print("Ace of {}".format(self.suit))
+
+    def showValue(self):
+        if self.value == 11:
+            return 10
+        if self.value == 12:
+            return 10
+        if self.value == 13:
+            return 10
+        else:
+            return self.value
+
+
+
+class Deck(object):
+    def __init__(self):
+        self.cards = []
+        self.build()
+
+    def build(self):
+        for s in ["Spades", "Clubs", "Diamonds", "Hearts"]:
+            for v in range(2, 15):
+                self.cards.append(Card(s, v))
+
+    def show(self):
+        for c in self.cards:
+            c.show()
+
+    def shuffle(self):
+        for i in range(len(self.cards)-1, 0, -1):
+            r = random.randint(0, i)
+            self.cards[i], self.cards[r] = self.cards[r], self.cards[i]
+
+    def drawCard(self):
+        return self.cards.pop()
+
+class Player(object):
+    def __init__(self, name, isdealer):
+        self.name = name
+        self.dealer = isdealer
+        self.hand = []
+        self.total = 0
+        self.totalsoft = 0
+        self.money = 1000
+        self.bet = 0
+
+    def draw(self, deck):
+        self.hand.append(deck.drawCard())
+
+    def betPlace(self,betPlaced):
+        self.bet = betPlaced
+
+    def calcTotal(self):
+        self.total = 0
+        self.totalsoft = 0
+
+        ##check if dealer
+        if self.dealer == 1:
+            for card in self.hand:
+                if card != self.hand[0]:
+                    if card.showValue() == 14:
+                        if self.total > 10:
+                            val = 1
+                            valsoft = 1
+                        else:
+                            val = 11
+                            valsoft = 1
+                    else:
+                        val = card.showValue()
+                        valsoft = card.showValue()
+
+                    self.total += val
+                    self.totalsoft += valsoft
+
+        ##if player
+        else:
+            for card in self.hand:
+                if card.showValue() == 14:
+                    if self.total > 10:
+                        val = 1
+                        valsoft = 1
+                    else:
+                        val = 11
+                        valsoft = 1
+                else:
+                    val = card.showValue()
+                    valsoft = card.showValue()
+
+                self.total += val
+                self.totalsoft += valsoft
+
+    def calcWinnings(self,result):
+        #0 for loss, 1 for win, 2 for blackjack
+        if result == 0:
+            self.money -= self.bet
+        if result == 1:
+            self.money += self.bet
+        if result == 2:
+            self.money += self.bet*(3/2)
+        self.bet = 0
+
+
+    def check21(self):
+        self.total = 0
+        self.totalsoft = 0
+        for card in self.hand:
+            if card.showValue() == 14:
+                if self.total > 10:
+                    val = 1
+                    valsoft = 1
+                else:
+                    val = 11
+                    valsoft = 1
+            else:
+                val = card.showValue()
+                valsoft = card.showValue()
+
+            self.total += val
+            self.totalsoft += valsoft
+
+        if self.total == 21:
+            return 1
+        else:
+            return 0
+
+    def checkBust(self):
+        self.calcTotal()
+        if self.total > 21:
+            if self.totalsoft > 21:
+                return 1
+        else:
+            return 0
+
+    def doubleDown(self):
+        self.bet = self.bet*2
+
+    def getTotal(self):
+        self.calcTotal()
+        if self.totalsoft != self.total:
+            if self.total < 22:
+                return self.total
+            else:
+                return self.totalsoft
+        else:
+            return self.total
+
+    def showHand(self):
+        ##show player totals
+        self.calcTotal()
+        if self.totalsoft != self.total:
+            if self.total > 21:
+                print("{} shows {}".format(self.name, self.totalsoft))
+            else:
+                print("{} shows {} (soft {})".format(self.name, self.total, self.totalsoft))
+        else:
+            print("{} shows {}".format(self.name, self.total))
+
+        #find out card count
+        cardCount = len(self.hand)
+
+        #display hand
+        count = 0
+        for card in self.hand:
+            # card.show()
+            space = ' '
+            ##convert suit to Character
+            if card.suit == "Spades":
+                suitChar = "\u2660"
+            elif card.suit == "Hearts":
+                suitChar = "\u2665"
+            elif card.suit == "Diamonds":
+                suitChar = "\u2666"
+            elif card.suit == "Clubs":
+                suitChar = "\u2663"
+
+
+            ##convert 11, 12, 13, 14 to J, Q, K, A
+            if card.value == 11:
+                dispVal = "J"
+            elif card.value == 12:
+                dispVal = "Q"
+            elif card.value == 13:
+                dispVal = "K"
+            elif card.value == 14:
+                dispVal = "A"
+            else:
+                dispVal = card.value
+
+            #Create Card Ascii list and assign values
+            if count == 0:
+                if self.dealer == 1:
+                    lines = [[] for i in range(9)]
+                    lines[0].append("┌─────────────┐ ")
+                    lines[1].append("│├─┼─┼─┼─┼─┼─┤│ ")
+                    lines[2].append("│├─┼─┼─┼─┼─┼─┤│ ")
+                    lines[3].append("│├─┼─┼─┼─┼─┼─┤│ ")
+                    lines[4].append("│├─┼─┼─┼─┼─┼─┤│ ")
+                    lines[5].append("│├─┼─┼─┼─┼─┼─┤│ ")
+                    lines[6].append("│├─┼─┼─┼─┼─┼─┤│ ")
+                    lines[7].append("│├─┼─┼─┼─┼─┼─┤│ ")
+                    lines[8].append("└─────────────┘ ")
+
+
+                else:
+                    ##check for 10 to accomadate spacing
+                    if dispVal == 10:
+                        lines = [[] for i in range(9)]
+                        lines[0].append("┌─────────────┐ ")
+                        lines[1].append("│{}         │ ".format(dispVal))  # use two {} one for char, one for space or char
+                        lines[2].append("│           │ ")
+                        lines[3].append("│           │ ")
+                        lines[4].append("│     {}     │ ".format(suitChar))
+                        lines[5].append("│           │ ")
+                        lines[6].append("│           │ ")
+                        lines[7].append("│         {}│ ".format(dispVal))
+                        lines[8].append("└─────────────┘ ")
+                    else:
+                        lines = [[] for i in range(9)]
+                        lines[0].append("┌─────────────┐ ")
+                        lines[1].append("│{}{}         │ ".format(dispVal, space))  # use two {} one for char, one for space or char
+                        lines[2].append("│           │ ")
+                        lines[3].append("│           │ ")
+                        lines[4].append("│     {}     │ ".format(suitChar))
+                        lines[5].append("│           │ ")
+                        lines[6].append("│           │ ")
+                        lines[7].append("│         {}{}│ ".format(space, dispVal))
+                        lines[8].append("└─────────────┘ ")
+            else:
+
+                ##check for 10 to accomadate spacing
+                if dispVal == 10:
+                    i = 0
+                    for s in lines:
+                        if i == 0:
+                            lines[i] += "┌─────────────┐ "
+                        elif i == 1:
+                            lines[i] += "│{}         │ ".format(dispVal)
+                        elif i == 4:
+                            lines[i] += "│     {}     │ ".format(suitChar)
+                        elif i == 7:
+                            lines[i] += "│         {}│ ".format(dispVal)
+                        elif i == 8:
+                            lines[i] += "└─────────────┘ "
+                        else:
+                            lines[i] += "│           │ "
+                        i += 1
+                else:
+                    i = 0
+                    for s in lines:
+                        if i == 0:
+                            lines[i] += "┌─────────────┐ "
+                        elif i == 1:
+                            lines[i] += "│{}{}         │ ".format(dispVal, space)
+                        elif i == 4:
+                            lines[i] += "│     {}     │ ".format(suitChar)
+                        elif i == 7:
+                            lines[i] += "│         {}{}│ ".format(space, dispVal)
+                        elif i == 8:
+                            lines[i] += "└─────────────┘ "
+                        else:
+                            lines[i] += "│           │ "
+                        i += 1
+            count += 1
+        result = [''.join(line) for line in lines]
+        print(*result, sep='\n')
+        #display money and current bet
+        if self.name != 'Dealer':
+            print('Money {}. Current bet: {}'.format(self.money, self.bet))
+
+    def discard(self):
+        self.hand.clear()
+
+def dealerTurn(player,dealer,deck):
+    dealer.dealer = 0
+    while 1:
+        #clear screen
+        print("\n" * 100)  # remove the brackets in Python 2.x
+
+        #reveal hand
+        dealer.showHand()
+        player.showHand()
+
+        #check if not busted
+        if dealer.checkBust() == 1:
+            break
+        if dealer.getTotal() < 17:
+            # if dealer.getTotal() > player.getTotal():
+            #     break
+            # else:
+            print('Dealer hits...')
+            time.sleep(1.5)
+            dealer.draw(deck)
+        else:
+            break
+
+#initialize players
+dealer = Player("Dealer",1)
+adam = Player("Adam",0)
+while 1:
+    if adam.money == 0:
+        print("YOU LOSE!")
+        break
+    #initialize deck
+    deck = Deck()
+    deck.shuffle()
+
+    #clear screen
+    print ("\n" * 100) # remove the brackets in Python 2.x
+
+    #place bet
+    while 1:
+        try:
+            currentbet = float(input("Money ${}. Please place bet: ".format(adam.money)))
+            if currentbet <= adam.money:
+                break
+            else:
+                print("You dont have that much money!")
+        except:
+            print("Invalid bet.")
+    adam.betPlace(currentbet)
+
+    #deal hands
+    dealer.draw(deck)
+    dealer.draw(deck)
+    adam.draw(deck)
+    adam.draw(deck)
+
+    #clear screen
+    print ("\n" * 100) # remove the brackets in Python 2.x
+
+    #check for blackjack
+    if adam.check21() == 1:
+        if dealer.check21() != 1:
+            dealer.dealer = 0
+            dealer.showHand()
+            adam.showHand()
+            print('Blackjack! Adam Wins!')
+            adam.calcWinnings(2)
+
+    elif dealer.check21() == 1:
+        dealer.dealer = 0
+        dealer.showHand()
+        adam.showHand()
+        print('Dealer has blackjack! Dealer Wins!')
+        adam.calcWinnings(0)
+
+    #if no blackjack
+    else:
+        dealer.showHand()
+        adam.showHand()
+
+        #user input
+        doubledowntime = 1
+        while 1:
+
+            if(doubledowntime == 1):
+                action = input('h for hit. s for stand. d for double down:     ')
+                if action == 'd':
+                    adam.doubleDown()
+                    adam.draw(deck)
+
+                    # clear screen
+                    print("\n" * 100)  # remove the brackets in Python 2.x
+
+                    dealer.showHand()
+                    adam.showHand()
+                    break
+                if action == 'h':
+                    doubledowntime = 0
+                    adam.draw(deck)
+
+                    # clear screen
+                    print("\n" * 100)  # remove the brackets in Python 2.x
+
+                    dealer.showHand()
+                    adam.showHand()
+                if action == 's':
+                    break
+                if adam.checkBust() == 1:
+                    break
+            else:
+                action = input('h for hit. s for stand:     ')
+                if action == 'h':
+                    adam.draw(deck)
+
+                    # clear screen
+                    print("\n" * 100)  # remove the brackets in Python 2.x
+
+                    dealer.showHand()
+                    adam.showHand()
+                if action == 's':
+                    break
+                if adam.checkBust() == 1:
+                    break
+
+        #call dealers turn
+        if adam.checkBust() != 1:
+            dealerTurn(adam,dealer,deck)
+
+        ##end hand display results
+        if adam.checkBust() == 1:
+            print('Adam busts! Dealer Wins!')
+            adam.calcWinnings(0)
+        elif dealer.checkBust() == 1:
+            print('Dealer busts! Adam Wins!')
+            adam.calcWinnings(1)
+        elif adam.getTotal() > dealer.getTotal():
+            print('Adam Wins!')
+            adam.calcWinnings(1)
+        elif adam.getTotal() < dealer.getTotal():
+            print('Dealer Wins!')
+            adam.calcWinnings(0)
+        elif adam.getTotal() == dealer.getTotal():
+            print('Push!')
+            adam.bet = 0
+
+    adam.discard()
+    dealer.discard()
+
+    #reinstate dealer discretion
+    dealer.dealer = 1
+
+    del deck
+
+    print('\n')
+    input("Press Enter to continue...")
